@@ -2,10 +2,7 @@ import models.UserInfoDB;
 import play.Application;
 import play.GlobalSettings;
 
-/**
- * Provide initialization code for the digits application.
- * @author Philip Johnson
- */
+
 public class Global extends GlobalSettings {
 
   /**

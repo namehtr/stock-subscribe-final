@@ -7,5 +7,6 @@ libraryDependencies ++= Seq(
   javaEbean,
   cache
 )     
+libraryDependencies += "com.googlecode.json-simple" % "json-simple" % "1.1.1"
 
 play.Project.playJavaSettings

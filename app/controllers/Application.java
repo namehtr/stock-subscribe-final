@@ -3,48 +3,46 @@ package controllers;
 import play.data.Form;
 import play.mvc.Controller;
 import play.mvc.Result;
-import views.html.Index;
-import views.html.Profile;
-import views.html.Login;
+import play.mvc.*;
+import play.data.*;
+import play.*;
+
+import views.html.*;
 import views.formdata.LoginFormData;
 import play.mvc.Security;
+import models.UserInfoDB;
+import java.util.*;
+import play.data.validation.Constraints.*;
+import alphavantage.*;
+import org.json.simple.parser.*;
+import com.fasterxml.jackson.databind.*;
 
-/**
- * Implements the controllers for this application.
- */
+
+
 public class Application extends Controller {
 
-  /**
-   * Provides the Index page.
-   * @return The Index page. 
-   */
+
+  public static class Subscribe {
+    @Required public String symbol;
+    @Required @Min(1) @Max(2) public Integer action;
+  }
+
   public static Result index() {
     return ok(Index.render("Home", Secured.isLoggedIn(ctx()), Secured.getUserInfo(ctx())));
   }
-  
-  /**
-   * Provides the Login page (only to unauthenticated users). 
-   * @return The Login page. 
-   */
+
   public static Result login() {
     Form<LoginFormData> formData = Form.form(LoginFormData.class);
     return ok(Login.render("Login", Secured.isLoggedIn(ctx()), Secured.getUserInfo(ctx()), formData));
   }
 
-  /**
-   * Processes a login form submission from an unauthenticated user. 
-   * First we bind the HTTP POST data to an instance of LoginFormData.
-   * The binding process will invoke the LoginFormData.validate() method.
-   * If errors are found, re-render the page, displaying the error data. 
-   * If errors not found, render the page with the good data. 
-   * @return The index page with the results of validation. 
-   */
   public static Result postLogin() {
 
     // Get the submitted form data from the request object, and run validation.
     Form<LoginFormData> formData = Form.form(LoginFormData.class).bindFromRequest();
 
     if (formData.hasErrors()) {
+
       flash("error", "Login credentials not valid.");
       return badRequest(Login.render("Login", Secured.isLoggedIn(ctx()), Secured.getUserInfo(ctx()), formData));
     }
@@ -55,23 +53,66 @@ public class Application extends Controller {
       return redirect(routes.Application.profile());
     }
   }
-  
-  /**
-   * Logs out (only for authenticated users) and returns them to the Index page. 
-   * @return A redirect to the Index page. 
-   */
+
+
   @Security.Authenticated(Secured.class)
   public static Result logout() {
     session().clear();
     return redirect(routes.Application.index());
   }
-  
-  /**
-   * Provides the Profile page (only to authenticated users).
-   * @return The Profile page. 
-   */
+
   @Security.Authenticated(Secured.class)
   public static Result profile() {
-    return ok(Profile.render("Profile", Secured.isLoggedIn(ctx()), Secured.getUserInfo(ctx())));
+    ArrayList<String> userStockArray = new ArrayList<String>(UserInfoDB.getUserStockArray(ctx().session().get("email")));
+    for(int i=0;i<userStockArray.size();i++){
+      try  {
+        String symbol = userStockArray.get(i);
+        String price = Request.getHTML("https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol="+symbol+"&interval=5min&apikey=B35PIEJLFU7T66ZA");
+        JSONParser jsonParser = new JSONParser();
+
+        Object obj = jsonParser.parse(price);
+
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+        JsonNode node = mapper.convertValue(obj, JsonNode.class).path("Time Series (5min)");
+        Iterator<JsonNode> iterator = node.elements();
+        String lastPrice = "NA";
+        while(iterator.hasNext()){
+          JsonNode finalNode = iterator.next();
+          lastPrice = finalNode.path("4. close").textValue();
+        }
+        userStockArray.set(i,symbol+" Last Price :"+lastPrice);
+      }catch(Exception e){
+
+      }
+    }
+    return ok(Profile.render("Profile", Secured.isLoggedIn(ctx()), Secured.getUserInfo(ctx()),userStockArray));
+  }
+
+  @Security.Authenticated(Secured.class)
+  public static Result subscribe() {
+    return ok(SubscribePage.render("Subscribe", Secured.isLoggedIn(ctx()), Secured.getUserInfo(ctx()),Form.form(Subscribe.class)));
+  }
+
+  public static Result subscribeAction() {
+    Form<Subscribe> form = Form.form(Subscribe.class).bindFromRequest();
+    if(form.hasErrors()) {
+      return badRequest(SubscribePage.render("Subscribe", Secured.isLoggedIn(ctx()), Secured.getUserInfo(ctx()),form));
+    } else {
+      Subscribe data = form.get();
+      if(data.action == 1){
+        UserInfoDB.addUserStock(ctx().session().get("email"),data.symbol);
+      }
+      else{
+        UserInfoDB.removeUserStock(ctx().session().get("email"),data.symbol);
+      }
+      return profile();
+    }
+  }
+  @Security.Authenticated(Secured.class)
+  public static Result price() {
+    ArrayList<String> userStockArray = new ArrayList<String>();
+    return ok(Profile.render("Profile", Secured.isLoggedIn(ctx()), Secured.getUserInfo(ctx()),userStockArray));
+
   }
 }

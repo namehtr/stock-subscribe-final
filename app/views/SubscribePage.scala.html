@@ -1,0 +1,27 @@
+@(page: String, isLoggedIn: Boolean, userInfo: UserInfo, subscribeForm : Form[Application.Subscribe] )
+
+@import helper._
+
+@Main(page, isLoggedIn, userInfo) {
+<h1>Configure your Stocks:</h1>
+
+@form(action = routes.Application.subscribeAction, args = 'id -> "subscribeform") {
+
+@inputText(
+field = subscribeForm("symbol"),
+args = '_label -> "Action on which stock symbol?", 'placeholder -> "Symbol"
+)
+
+@inputText(
+field = subscribeForm("action"),
+args = '_label -> "1 for add, 2 for delete", 'size -> 3, 'placeholder -> "1/2"
+)
+
+
+<p class="buttons">
+    <input type="submit">
+<p>
+
+    }
+
+}

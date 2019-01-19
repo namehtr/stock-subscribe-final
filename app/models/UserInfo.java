@@ -1,9 +1,5 @@
 package models;
 
-/**
- * A simple representation of a user. 
- * @author Philip Johnson
- */
 public class UserInfo {
  
   private String name;
